@@ -12,6 +12,8 @@
     "algs": "file:./algs/pkg"
   },
   "devDependencies": {
+    "@types/chartjs": "^0.0.31",
+    "chart.js": "^4.4.1",
     "typescript": "^5.2.2",
     "vite": "^5.0.10"
   }
