@@ -35,7 +35,6 @@ pub struct LinearClassifier {
     target: Labels,
     perceptron: Option<Perceptron>,
     prediction: Option<Labels>,
-    stored_target: Vec<f64>,
 }
 
 #[wasm_bindgen]
@@ -47,7 +46,6 @@ impl LinearClassifier {
             target: Labels::from_fn(1, |_, _| 1.0),
             perceptron: None,
             prediction: None,
-            stored_target: vec![],
         }
     }
 
@@ -99,10 +97,7 @@ impl LinearClassifier {
     }
 
     pub fn get_target(&mut self) -> *const f64 {
-        self.stored_target = (0..self.target.ncols())
-            .map(|i| self.target[i])
-            .collect::<Vec<f64>>();
-        self.stored_target.as_ptr()
+        self.target.as_ptr()
     }
 }
 
