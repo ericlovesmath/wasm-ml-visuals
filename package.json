@@ -6,10 +6,12 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy": "push-dir --dir=dist --branch=gh-pages"
   },
   "dependencies": {
-    "algs": "file:./algs/pkg"
+    "algs": "file:./algs/pkg",
+    "push-dir": "^0.4.1"
   },
   "devDependencies": {
     "@types/chartjs": "^0.0.31",
