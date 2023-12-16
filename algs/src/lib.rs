@@ -14,53 +14,98 @@ macro_rules! log {
     }
 }
 
-fn hypothesis(points: &Points) -> Labels {
+fn hypothesis(x: f64, y: f64) -> f64 {
     let (m, b) = (1.0, -0.5);
-    Labels::from_fn(points.ncols(), |_, i| {
-        if points[(2, i)] > m * points[(1, i)] + b {
-            1.0
-        } else {
-            -1.0
-        }
-    })
-}
-
-fn apply_perceptron(points: &Points, perc: &Perceptron) -> Labels {
-    Labels::from_fn(points.ncols(), |_, i| {
-        if points.column(i).dot(perc) > 0.0 {
-            1.0
-        } else {
-            -1.0
-        }
-    })
+    if y > m * x + b {
+        1.0
+    } else {
+        -1.0
+    }
 }
 
 #[wasm_bindgen]
-pub struct SimResult {
-    pub error_in: f64, // In Sample Error
+pub fn wasm_memory() -> JsValue {
+    wasm_bindgen::memory()
 }
 
 #[wasm_bindgen]
-pub fn linear_classification(n: usize, xs: Array, ys: Array) -> f64 {
-    let eps = 1E-6;
+pub struct LinearClassifier {
+    n: usize,
+    sample: Points,
+    target: Labels,
+    perceptron: Option<Perceptron>,
+    prediction: Option<Labels>,
+}
 
-    // let sample: Points = random_points(n);
-    let sample = Points::from_fn(n, |r, c| match r {
-        0 => 1.0,
-        1 => xs.get(c as u32).as_f64().unwrap(),
-        2 => ys.get(c as u32).as_f64().unwrap(),
-        _ => unreachable!(),
-    });
+#[wasm_bindgen]
+impl LinearClassifier {
+    pub fn new() -> LinearClassifier {
+        LinearClassifier {
+            n: 1,
+            sample: Points::from_fn(1, |_, _| 1.0),
+            target: Labels::from_fn(1, |_, _| 1.0),
+            perceptron: None,
+            prediction: None,
+        }
+    }
 
-    let target: Labels = hypothesis(&sample);
-    let weights: Perceptron = sample.transpose().pseudo_inverse(eps).unwrap() * &target.transpose();
-    let pred: Labels = apply_perceptron(&sample, &weights);
+    pub fn init(&mut self, n: usize, xs: Array, ys: Array) {
+        let sample = Points::from_fn(n, |r, c| match r {
+            0 => 1.0,
+            1 => xs.get(c as u32).as_f64().unwrap(),
+            2 => ys.get(c as u32).as_f64().unwrap(),
+            _ => unreachable!(),
+        });
 
-    // In Sample Error
-    target
-        .iter()
-        .zip(pred.iter())
-        .filter(|(&a, &b)| a != b)
-        .count() as f64
-        / n as f64
+        let target = Labels::from_fn(sample.ncols(), |_, i| {
+            hypothesis(sample[(1, i)], sample[(2, i)])
+        });
+
+        self.n = n;
+        self.sample = sample;
+        self.target = target;
+    }
+
+    fn test_sample(&self) -> Labels {
+        match self.perceptron {
+            None => panic!("LinearClassifier::test_sample called before training"),
+            Some(perceptron) => Labels::from_fn(self.n, |_, i| {
+                if self.sample.column(i).dot(&perceptron) > 0.0 {
+                    1.0
+                } else {
+                    -1.0
+                }
+            }),
+        }
+    }
+
+    pub fn train(&mut self) {
+        let eps = 1E-6;
+
+        self.perceptron =
+            Some(self.sample.transpose().pseudo_inverse(eps).unwrap() * self.target.transpose());
+        self.prediction = Some(self.test_sample());
+    }
+
+    pub fn in_sample_error(&self) -> f64 {
+        self.target
+            .iter()
+            .zip(self.prediction.as_ref().unwrap().iter())
+            .filter(|(&a, &b)| a != b)
+            .count() as f64
+            / self.n as f64
+    }
+
+    pub fn get_target(&self) -> *const f64 {
+        (0..self.target.ncols())
+            .map(|i| self.target[i])
+            .collect::<Vec<f64>>()
+            .as_ptr()
+    }
+}
+
+impl Default for LinearClassifier {
+    fn default() -> Self {
+        Self::new()
+    }
 }
