@@ -89,10 +89,59 @@ for (let n = 10; n <= 1000; n += 10) {
   }, 0);
 }
 
+const scatterCanvas = <HTMLCanvasElement>document.getElementById("myScatter");
+let scatter = new Chart(scatterCanvas, {
+  type: "scatter",
+  data: {
+    datasets: [
+      {
+        label: "Red",
+        backgroundColor: "rgba(255,0,0,1.0)",
+        borderColor: "rgba(255,0,0,0.1)",
+        data: [] as any[],
+      },
+      {
+        label: "Blue",
+        backgroundColor: "rgba(0,0,255,1.0)",
+        borderColor: "rgba(0,0,255,0.1)",
+        data: [] as any[],
+      },
+      {
+        type: "line",
+        label: "Hypothesis",
+        data: [
+          { x: -2, y: -2.5 },
+          { x: 2, y: 1.5 },
+        ],
+      },
+    ],
+  },
+  options: {
+    devicePixelRatio: 2,
+    scales: {
+      x: {
+        min: -1,
+        max: 1,
+      },
+      y: {
+        min: -1,
+        max: 1,
+      },
+    },
+  },
+});
+
 // Accessing WASM Memory
-let n = 10;
+let n = 25;
 let [xs, ys] = random_sample(n);
 lc.init(n, xs, ys);
 lc.train();
 let target = new Float64Array(wasm_memory().buffer, lc.get_target(), n);
-console.log(target);
+
+for (let i = 0; i < n; i += 1) {
+  scatter.data.datasets[target[i] == 1.0 ? 0 : 1].data.push({
+    x: xs[i],
+    y: ys[i],
+  });
+}
+scatter.update("none");
