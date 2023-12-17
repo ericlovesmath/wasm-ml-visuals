@@ -10,27 +10,27 @@ let chart = new Chart("myChart", {
       {
         label: "In Sample Error vs N, Averaged over 250",
         backgroundColor: "rgba(0,0,255,1.0)",
-        borderColor: "rgba(0,0,255,0.1)",
+        borderColor: "rgba(0,0,255,0.2)",
         data: [] as Number[],
       },
       {
         label: "+1 STD",
         type: "line",
         backgroundColor: "rgba(75, 192, 255, 0.5)",
-        borderColor: "transparent",
         pointRadius: 0,
         fill: 2,
         tension: 0.5,
+        showLine: false,
         data: [] as Number[],
       },
       {
         label: "-1 STD",
         type: "line",
         backgroundColor: "rgba(75, 192, 255, 0.5)",
-        borderColor: "transparent",
         pointRadius: 0,
         fill: 1,
         tension: 0.5,
+        showLine: false,
         data: [] as Number[],
       },
     ],
@@ -38,6 +38,7 @@ let chart = new Chart("myChart", {
   options: {
     devicePixelRatio: 2,
     scales: { y: { min: 0, max: 0.05 } },
+    animation: false,
   },
 });
 
@@ -65,6 +66,28 @@ function random_sample(n: number, hyp: (x: number) => number) {
   let target = [...Array(n).keys()].map((i) => (ys[i] > hyp(xs[i]) ? 1 : -1));
   return [xs, ys, target];
 }
+
+let scatter = new Chart("myScatter", {
+  type: "scatter",
+  data: {
+    datasets: [
+      {
+        type: "line",
+        borderColor: "Black",
+        label: "Hypothesis",
+        data: [] as any[],
+      },
+    ],
+  },
+  options: {
+    devicePixelRatio: 2,
+    scales: {
+      x: { min: -1, max: 1 },
+      y: { min: -1, max: 1 },
+    },
+    plugins: { legend: { labels: { filter: (item) => item.text !== "none" } } },
+  },
+});
 
 function plot_lc_in_sample_error() {
   let lc = LinearClassifier.new();
@@ -98,32 +121,11 @@ function plot_lc_in_sample_error() {
       chart.data.datasets[0].data.push(mean);
       chart.data.datasets[1].data.push(mean - std);
       chart.data.datasets[2].data.push(mean + std);
-      chart.update("none");
+      chart.update();
     }, 0);
   }
+  setTimeout(() => lc.free(), 0);
 }
-
-let scatter = new Chart("myScatter", {
-  type: "scatter",
-  data: {
-    datasets: [
-      {
-        type: "line",
-        borderColor: "Black",
-        label: "Hypothesis",
-        data: [] as any[],
-      },
-    ],
-  },
-  options: {
-    devicePixelRatio: 2,
-    scales: {
-      x: { min: -1, max: 1 },
-      y: { min: -1, max: 1 },
-    },
-    plugins: { legend: { labels: { filter: (item) => item.text !== "none" } } },
-  },
-});
 
 function plot_lc_variance() {
   let lc = LinearClassifier.new();
@@ -138,8 +140,8 @@ function plot_lc_variance() {
     let w = new Float64Array(wasm_memory().buffer, lc.get_weights(), 3);
     scatter.data.datasets.push({
       type: "line",
-      borderColor: "rgba(100, 100, 100, 0.1)",
       label: "none",
+      borderColor: "rgba(100, 100, 100, 0.1)",
       data: [
         { x: -2, y: (-1 * (w[0] - 2 * w[1])) / w[2] },
         { x: 2, y: (-1 * (w[0] + 2 * w[1])) / w[2] },
@@ -147,6 +149,7 @@ function plot_lc_variance() {
     });
   }
   scatter.update("none");
+  lc.free();
 }
 
 plot_lc_in_sample_error();
