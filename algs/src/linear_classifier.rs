@@ -1,5 +1,6 @@
 extern crate nalgebra as na;
 
+use crate::utils::set_panic_hook;
 use js_sys::Array;
 use na::{Dyn, OMatrix, U1, U3};
 use wasm_bindgen::prelude::*;
@@ -8,6 +9,8 @@ type Labels = OMatrix<f64, U1, Dyn>;
 type Perceptron = OMatrix<f64, U3, U1>;
 type Points = OMatrix<f64, U3, Dyn>;
 
+/// Linear Classifier for labeled 2D vectors
+/// Intended to be called from `JS`, compiled to `WASM`
 #[wasm_bindgen]
 pub struct LinearClassifier {
     sample: Points,
@@ -18,6 +21,7 @@ pub struct LinearClassifier {
 #[wasm_bindgen]
 impl LinearClassifier {
     pub fn new() -> LinearClassifier {
+        set_panic_hook();
         LinearClassifier {
             sample: Points::zeros(1),
             perceptron: None,
@@ -50,6 +54,13 @@ impl LinearClassifier {
             }),
         };
         self.prediction.as_ptr()
+    }
+
+    pub fn get_weights(&self) -> *const f64 {
+        match self.perceptron {
+            None => panic!("LinearClassifier::get_weights() called before train()"),
+            Some(perceptron) => perceptron.as_ptr(),
+        }
     }
 }
 
