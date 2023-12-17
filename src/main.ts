@@ -43,16 +43,11 @@ let chart = new Chart(canvas, {
   },
   options: {
     devicePixelRatio: 2,
-    scales: {
-      y: {
-        min: 0,
-        max: 0.05,
-      },
-    },
+    scales: { y: { min: 0, max: 0.05 } },
   },
 });
 
-const random_sample = (n: number) => {
+const random_sample = (n: number, m: number, b: number) => {
   let xs = [...Array(n).keys()].map(
     (_) => Math.random() * 2 - 1,
     Math.random() * 2 - 1
@@ -61,7 +56,10 @@ const random_sample = (n: number) => {
     (_) => Math.random() * 2 - 1,
     Math.random() * 2 - 1
   );
-  return [xs, ys];
+  let target = [...Array(n).keys()].map(
+    (i) => ys[i] > (xs[i] * m + b) ? 1 : -1
+  );
+  return [xs, ys, target];
 };
 
 let lc = LinearClassifier.new();
@@ -71,10 +69,17 @@ for (let n = 10; n <= 1000; n += 10) {
     let runs = 300;
 
     let error_ins = [...Array(runs).keys()].map((_) => {
-      let [xs, ys] = random_sample(n);
-      lc.init(n, xs, ys);
-      lc.train();
-      return lc.in_sample_error();
+      let [m, b] = [-1, 0.3];
+      let [xs, ys, target] = random_sample(n, m, b);
+      lc.train(xs, ys, target);
+      let prediction = new Float64Array(wasm_memory().buffer, lc.predict(xs, ys), n);
+      let diff = 0
+      for (let i = 0; i < n; i += 1) {
+        if (prediction[i] != target[i]) {
+          diff += 1
+        }
+      }
+      return diff / n;
     });
 
     let mean = error_ins.reduce((a, b) => a + b, 0) / runs;
@@ -89,54 +94,44 @@ for (let n = 10; n <= 1000; n += 10) {
   }, 0);
 }
 
-const scatterCanvas = <HTMLCanvasElement>document.getElementById("myScatter");
-let scatter = new Chart(scatterCanvas, {
+let scatter = new Chart("myScatter", {
   type: "scatter",
   data: {
     datasets: [
       {
         label: "Red",
-        backgroundColor: "rgba(255,0,0,1.0)",
-        borderColor: "rgba(255,0,0,0.1)",
+        backgroundColor: "Red",
         data: [] as any[],
       },
       {
         label: "Blue",
-        backgroundColor: "rgba(0,0,255,1.0)",
-        borderColor: "rgba(0,0,255,0.1)",
+        backgroundColor: "Blue",
         data: [] as any[],
       },
       {
         type: "line",
-        label: "Hypothesis",
-        data: [
-          { x: -2, y: -2.5 },
-          { x: 2, y: 1.5 },
-        ],
+        label: "none",
+        data: [] as any[],
       },
     ],
   },
   options: {
     devicePixelRatio: 2,
     scales: {
-      x: {
-        min: -1,
-        max: 1,
-      },
-      y: {
-        min: -1,
-        max: 1,
-      },
+      x: { min: -1, max: 1 },
+      y: { min: -1, max: 1 },
     },
+    plugins: { legend: { labels: { filter: (item) => item.text !== "none" } } },
   },
 });
 
 // Accessing WASM Memory
-let n = 25;
-let [xs, ys] = random_sample(n);
-lc.init(n, xs, ys);
-lc.train();
-let target = new Float64Array(wasm_memory().buffer, lc.get_target(), n);
+let [n, m, b] = [25, Math.random() * 8 - 4, Math.random() * 1.6 - 0.8];
+let [xs, ys, target] = random_sample(n, m, b);
+scatter.data.datasets[2].data.push({ x: -2, y: -2 * m + b });
+scatter.data.datasets[2].data.push({ x: 2, y: 2 * m + b });
+
+lc.train(xs, ys, target);
 
 for (let i = 0; i < n; i += 1) {
   scatter.data.datasets[target[i] == 1.0 ? 0 : 1].data.push({
