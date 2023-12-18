@@ -2,6 +2,17 @@ import "./style.css";
 import Chart from "chart.js/auto";
 import { wasm_memory, LinearClassifier } from "algs";
 
+const InputNumPoints = <HTMLInputElement>document.getElementById("num-points");
+const InputNumRuns = <HTMLInputElement>document.getElementById("num-runs");
+const ButtonRunBiasSim = <HTMLButtonElement>(
+  document.getElementById("run-bias-sim")
+);
+
+const nMin = parseInt(InputNumPoints.min);
+const nMax = parseInt(InputNumPoints.max);
+const runsMin = parseInt(InputNumRuns.min);
+const runsMax = parseInt(InputNumRuns.max);
+
 let chart = new Chart("myChart", {
   type: "line",
   data: {
@@ -127,14 +138,22 @@ function plot_lc_in_sample_error() {
   setTimeout(() => lc.free(), 0);
 }
 
-function plot_lc_variance() {
+function plot_lc_variance(n: number, runs: number) {
+  scatter.data.datasets = [
+    {
+      type: "line",
+      borderColor: "Black",
+      label: "Hypothesis",
+      data: [] as any[],
+    },
+  ];
+
   let lc = LinearClassifier.new();
-  let n = 50;
   let [m, b] = random_line();
   scatter.data.datasets[0].data.push({ x: -2, y: -2 * m + b });
   scatter.data.datasets[0].data.push({ x: 2, y: 2 * m + b });
 
-  for (let i = 0; i < 500; i += 1) {
+  for (let i = 0; i < runs; i += 1) {
     let [xs, ys, target] = random_sample(n, (x) => m * x + b);
     lc.train(xs, ys, target);
     let w = new Float64Array(wasm_memory().buffer, lc.get_weights(), 3);
@@ -153,4 +172,16 @@ function plot_lc_variance() {
 }
 
 plot_lc_in_sample_error();
-plot_lc_variance();
+plot_lc_variance(InputNumPoints.valueAsNumber, InputNumRuns.valueAsNumber);
+
+ButtonRunBiasSim.onclick = () => {
+  let n = InputNumPoints.valueAsNumber;
+  let runs = InputNumRuns.valueAsNumber;
+  if (isNaN(n) || n < nMin || n > nMax) {
+    alert(`Size of sample must be an integer from ${nMin} to ${nMax}`);
+  } else if (isNaN(runs) || runs < runsMin || runs > runsMax) {
+    alert(`Number of runs must be an integer from ${runsMin} to ${runsMax}`);
+  } else {
+    plot_lc_variance(n, runs);
+  }
+};
