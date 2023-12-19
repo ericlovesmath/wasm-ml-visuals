@@ -1,7 +1,6 @@
 extern crate nalgebra as na;
 
 use crate::utils::set_panic_hook;
-use js_sys::Array;
 use na::{Dyn, OMatrix, U1, U3};
 use wasm_bindgen::prelude::*;
 
@@ -14,7 +13,7 @@ type Points = OMatrix<f64, U3, Dyn>;
 #[wasm_bindgen]
 pub struct LinearClassifier {
     sample: Points,
-    perceptron: Option<Perceptron>,
+    perceptron: Perceptron,
     prediction: Labels,
 }
 
@@ -24,56 +23,55 @@ impl LinearClassifier {
         set_panic_hook();
         LinearClassifier {
             sample: Points::zeros(1),
-            perceptron: None,
+            perceptron: Perceptron::zeros(),
             prediction: Labels::zeros(1),
         }
     }
 
-    pub fn train(&mut self, xs: Array, ys: Array, target: Array) {
+    /// Trains `n` labeled `sample` points.
+    /// * `n` - Number of `sample` points or length of `labels`
+    /// * `sample` - Length `2n`, Flattened training data, not including bias
+    /// * `labels` - Length `n`, labels for training data (-1.0 or 1.0)
+    pub fn train(&mut self, n: usize, sample: &[f64], labels: &[f64]) {
         let eps = 1E-6;
+        let sample = LinearClassifier::parse_sample(n, sample);
+        let labels = Labels::from_row_slice(labels);
 
-        let (n, sample) = LinearClassifier::parse_sample(xs, ys);
-        let target = Labels::from_fn(n, |_, c| target.get(c as u32).as_f64().unwrap());
-
+        self.perceptron = sample.transpose().pseudo_inverse(eps).unwrap() * labels.transpose();
         self.sample = sample;
-        self.perceptron =
-            Some(self.sample.transpose().pseudo_inverse(eps).unwrap() * target.transpose());
     }
 
-    pub fn predict(&mut self, xs: Array, ys: Array) -> *const f64 {
-        let (n, sample) = LinearClassifier::parse_sample(xs, ys);
-
-        self.prediction = match self.perceptron {
-            None => panic!("LinearClassifier::predict() called before train()"),
-            Some(perceptron) => Labels::from_fn(n, |_, i| {
-                if sample.column(i).dot(&perceptron) > 0.0 {
-                    1.0
-                } else {
-                    -1.0
-                }
-            }),
-        };
+    /// Labels `n` `sample` points with the trained model.
+    /// Returns prediction of `0`s if not model is not trained
+    /// * `n` - Number of `sample` points
+    /// * `sample` - Length `2n`, Flattened testing data, not including bias
+    pub fn predict(&mut self, n: usize, sample: &[f64]) -> *const f64 {
+        let sample = LinearClassifier::parse_sample(n, sample);
+        self.prediction = Labels::from_fn(n, |_, i| {
+            if sample.column(i).dot(&self.perceptron) > 0.0 {
+                1.0
+            } else {
+                -1.0
+            }
+        });
         self.prediction.as_ptr()
     }
 
+    /// Returns pointer to perceptron, includes bias.
+    /// Returns perceptron of `0`s if model not trained.
+    /// Call from `js` by indexing `wasm_memory()`.
     pub fn get_weights(&self) -> *const f64 {
-        match self.perceptron {
-            None => panic!("LinearClassifier::get_weights() called before train()"),
-            Some(perceptron) => perceptron.as_ptr(),
-        }
+        self.perceptron.as_ptr()
     }
 }
 
 impl LinearClassifier {
-    fn parse_sample(xs: Array, ys: Array) -> (usize, Points) {
-        let n = xs.length() as usize;
-        let sample = Points::from_fn(n, |r, c| match r {
+    /// Unflattens array, converting to `DMatrix`
+    fn parse_sample(n: usize, sample: &[f64]) -> Points {
+        Points::from_fn(n, |r, c| match r {
             0 => 1.0,
-            1 => xs.get(c as u32).as_f64().unwrap(),
-            2 => ys.get(c as u32).as_f64().unwrap(),
-            _ => unreachable!(),
-        });
-        (n, sample)
+            r => sample[n * (r - 1) + c],
+        })
     }
 }
 

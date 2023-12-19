@@ -2,6 +2,7 @@ use wasm_bindgen::prelude::*;
 
 /// `println!()` like macro for `console.log()`
 /// Only use when run in WASM
+#[macro_export]
 #[allow(unused_macros)]
 macro_rules! log {
     ( $( $t:tt )* ) => {

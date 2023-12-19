@@ -53,32 +53,7 @@ let chart = new Chart("myChart", {
   },
 });
 
-function random_line(): [number, number] {
-  let x_1 = Math.random() * 2 - 1;
-  let y_1 = Math.random() * 2 - 1;
-  let x_2 = Math.random() * 2 - 1;
-  let y_2 = Math.random() * 2 - 1;
-
-  let m = (y_2 - y_1) / (x_2 - x_1);
-  let b = y_1 - m * x_1;
-
-  return [m, b];
-}
-
-function random_sample(n: number, hyp: (x: number) => number) {
-  let xs = [...Array(n).keys()].map(
-    (_) => Math.random() * 2 - 1,
-    Math.random() * 2 - 1
-  );
-  let ys = [...Array(n).keys()].map(
-    (_) => Math.random() * 2 - 1,
-    Math.random() * 2 - 1
-  );
-  let target = [...Array(n).keys()].map((i) => (ys[i] > hyp(xs[i]) ? 1 : -1));
-  return [xs, ys, target];
-}
-
-let scatter = new Chart("myScatter", {
+let scatter = new Chart("bias-sim-scatter", {
   type: "scatter",
   data: {
     datasets: [
@@ -100,24 +75,44 @@ let scatter = new Chart("myScatter", {
   },
 });
 
+function random_line(): [number, number] {
+  let x_1 = Math.random() * 2 - 1;
+  let y_1 = Math.random() * 2 - 1;
+  let x_2 = Math.random() * 2 - 1;
+  let y_2 = Math.random() * 2 - 1;
+
+  let m = (y_2 - y_1) / (x_2 - x_1);
+  let b = y_1 - m * x_1;
+
+  return [m, b];
+}
+
+function random_sample(n: number, hyp: (x: number) => number) {
+  let xs = [...Array(n).keys()].map(
+    (_) => Math.random() * 2 - 1,
+    Math.random() * 2 - 1
+  );
+  let ys = [...Array(n).keys()].map(
+    (_) => Math.random() * 2 - 1,
+    Math.random() * 2 - 1
+  );
+  let labels = [...Array(n).keys()].map((i) => (ys[i] > hyp(xs[i]) ? 1 : -1));
+  let sample = [...xs, ...ys];
+  return [sample, labels];
+}
+
 function plot_lc_in_sample_error() {
   let lc = LinearClassifier.new();
   let [m, b, runs] = [-1, 0.3, 250];
   for (let n = 10; n <= 1000; n += 10) {
     setTimeout(() => {
-      chart.data.labels!.push(n);
-
       let error_ins = [...Array(runs).keys()].map((_) => {
-        let [xs, ys, target] = random_sample(n, (x) => m * x + b);
-        lc.train(xs, ys, target);
-        let pred = new Float64Array(
-          wasm_memory().buffer,
-          lc.predict(xs, ys),
-          n
-        );
+        let [sample, labels] = random_sample(n, (x) => m * x + b);
+        lc.train(n, sample, labels);
+        let pred = new Float64Array(wasm_memory().buffer, lc.predict(n, sample), n);
         let diff = 0;
         for (let i = 0; i < n; i += 1) {
-          if (pred[i] != target[i]) {
+          if (pred[i] != labels[i]) {
             diff += 1;
           }
         }
@@ -129,6 +124,7 @@ function plot_lc_in_sample_error() {
         error_ins.reduce((a, b) => a + (b - mean) * (b - mean), 0) / runs
       );
 
+      chart.data.labels!.push(n);
       chart.data.datasets[0].data.push(mean);
       chart.data.datasets[1].data.push(mean - std);
       chart.data.datasets[2].data.push(mean + std);
@@ -139,23 +135,24 @@ function plot_lc_in_sample_error() {
 }
 
 function plot_lc_variance(n: number, runs: number) {
+  let lc = LinearClassifier.new();
+  let [m, b] = random_line();
+
   scatter.data.datasets = [
     {
       type: "line",
       borderColor: "Black",
       label: "Hypothesis",
-      data: [] as any[],
+      data: [
+        { x: -2, y: -2 * m + b },
+        { x: 2, y: 2 * m + b },
+      ],
     },
   ];
 
-  let lc = LinearClassifier.new();
-  let [m, b] = random_line();
-  scatter.data.datasets[0].data.push({ x: -2, y: -2 * m + b });
-  scatter.data.datasets[0].data.push({ x: 2, y: 2 * m + b });
-
   for (let i = 0; i < runs; i += 1) {
-    let [xs, ys, target] = random_sample(n, (x) => m * x + b);
-    lc.train(xs, ys, target);
+    let [sample, labels] = random_sample(n, (x) => m * x + b);
+    lc.train(n, sample, labels);
     let w = new Float64Array(wasm_memory().buffer, lc.get_weights(), 3);
     scatter.data.datasets.push({
       type: "line",
@@ -167,6 +164,7 @@ function plot_lc_variance(n: number, runs: number) {
       ],
     });
   }
+
   scatter.update("none");
   lc.free();
 }
