@@ -1,4 +1,5 @@
-use super::linear_classifier::{get_random_sample, LinearClassifier};
+use super::linear_classifier::LinearClassifier;
+use crate::linear_classifiers::utils::get_random_sample;
 use crate::utils::set_panic_hook;
 use wasm_bindgen::prelude::*;
 

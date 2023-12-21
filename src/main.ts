@@ -13,7 +13,7 @@ const nMax = parseInt(InputNumPoints.max);
 const runsMin = parseInt(InputNumRuns.min);
 const runsMax = parseInt(InputNumRuns.max);
 
-let chart = new Chart("in-sample-error-canvas", {
+let inSampleErrorChart = new Chart("in-sample-error-canvas", {
   type: "line",
   data: {
     labels: [] as Number[],
@@ -53,7 +53,7 @@ let chart = new Chart("in-sample-error-canvas", {
   },
 });
 
-let scatter = new Chart("bias-sim-canvas", {
+let biasSimChart = new Chart("bias-sim-canvas", {
   type: "scatter",
   data: {
     datasets: [
@@ -71,7 +71,33 @@ let scatter = new Chart("bias-sim-canvas", {
       x: { min: -1, max: 1 },
       y: { min: -1, max: 1 },
     },
-    plugins: { legend: { labels: { filter: (item) => item.text !== "none" } } },
+    plugins: {
+      legend: { labels: { filter: (item) => item.text !== undefined } },
+    },
+  },
+});
+
+let nonlinearChart = new Chart("nonlinear-features-canvas", {
+  type: "scatter",
+  data: {
+    datasets: [
+      {
+        type: "line",
+        borderColor: "Black",
+        label: "Hypothesis",
+        data: [] as any[],
+      },
+    ],
+  },
+  options: {
+    devicePixelRatio: 2,
+    scales: {
+      x: { min: -1, max: 1 },
+      y: { min: -1, max: 1 },
+    },
+    plugins: {
+      legend: { labels: { filter: (item) => item.text !== undefined } },
+    },
   },
 });
 
@@ -81,53 +107,77 @@ function plot_lc_in_sample_error() {
     setTimeout(() => {
       runner.run(n);
 
-      chart.data.labels!.push(n);
-      chart.data.datasets[0].data.push(runner.mean);
-      chart.data.datasets[1].data.push(runner.mean - runner.std);
-      chart.data.datasets[2].data.push(runner.mean + runner.std);
-      chart.update();
+      inSampleErrorChart.data.labels!.push(n);
+      inSampleErrorChart.data.datasets[0].data.push(runner.mean);
+      inSampleErrorChart.data.datasets[1].data.push(runner.mean - runner.std);
+      inSampleErrorChart.data.datasets[2].data.push(runner.mean + runner.std);
+      inSampleErrorChart.update();
     }, 0);
   }
   setTimeout(() => runner.free(), 0);
 }
 
-function plot_lc_variance(n: number, runs: number) {
+function plot_lc_bias(n: number, runs: number) {
   let runner = LCBiasVariance.new();
-  let [m, b] = [runner.m, runner.b];
 
-  scatter.data.datasets = [
+  // Clear previous run
+  biasSimChart.data.datasets.length = 1;
+  biasSimChart.data.datasets[0].data = [
+    { x: -2, y: runner.f_neg },
+    { x: 2, y: runner.f_pos },
+  ];
+
+  for (let i = 0; i < runs; i += 1) {
+    runner.run(n);
+    biasSimChart.data.datasets.push({
+      type: "line",
+      borderColor: "rgba(100, 100, 100, 0.1)",
+      data: [
+        { x: -2, y: runner.g_neg },
+        { x: 2, y: runner.g_pos },
+      ],
+    });
+  }
+
+  biasSimChart.update("none");
+  runner.free();
+}
+
+function plot_lc_nonlinear(n: number, runs: number) {
+  let runner = LCBiasVariance.new();
+  nonlinearChart.data.datasets = [
     {
       type: "line",
       borderColor: "Black",
       label: "Hypothesis",
       data: [
-        { x: -2, y: -2 * m + b },
-        { x: 2, y: 2 * m + b },
+        { x: -2, y: runner.f_neg },
+        { x: 2, y: runner.f_pos },
       ],
     },
   ];
 
   for (let i = 0; i < runs; i += 1) {
-    runner.run(n, m, b);
+    runner.run(n);
 
     // Decision Boundary for [1, x, y]
-    scatter.data.datasets.push({
+    nonlinearChart.data.datasets.push({
       type: "line",
-      label: "none",
       borderColor: "rgba(100, 100, 100, 0.1)",
       data: [
-        { x: -2, y: runner.y_neg_two },
-        { x: 2, y: runner.y_pos_two },
+        { x: -2, y: runner.g_neg },
+        { x: 2, y: runner.g_pos },
       ],
     });
   }
 
-  scatter.update("none");
+  nonlinearChart.update("none");
   runner.free();
 }
 
 plot_lc_in_sample_error();
-plot_lc_variance(InputNumPoints.valueAsNumber, InputNumRuns.valueAsNumber);
+plot_lc_bias(InputNumPoints.valueAsNumber, InputNumRuns.valueAsNumber);
+plot_lc_nonlinear(200, 200);
 
 ButtonRunBiasSim.onclick = () => {
   let n = InputNumPoints.valueAsNumber;
@@ -137,34 +187,6 @@ ButtonRunBiasSim.onclick = () => {
   } else if (isNaN(runs) || runs < runsMin || runs > runsMax) {
     alert(`Number of runs must be an integer from ${runsMin} to ${runsMax}`);
   } else {
-    plot_lc_variance(n, runs);
+    plot_lc_bias(n, runs);
   }
 };
-
-function plot_lc_nonlinear() {
-  let plot = new Chart("nonlinear-features-canvas", {
-    type: "scatter",
-    data: {
-      datasets: [
-        {
-          type: "line",
-          borderColor: "Black",
-          label: "Hypothesis",
-          data: [] as any[],
-        },
-      ],
-    },
-    options: {
-      devicePixelRatio: 2,
-      scales: {
-        x: { min: -1, max: 1 },
-        y: { min: -1, max: 1 },
-      },
-      plugins: {
-        legend: { labels: { filter: (item) => item.text !== "none" } },
-      },
-    },
-  });
-}
-
-plot_lc_nonlinear();
