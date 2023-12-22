@@ -7,7 +7,7 @@ const EPSILON: f64 = 1E-6;
 
 /// Linear Classifier for labeled 2D vectors
 pub struct LinearClassifier {
-    perceptron: Option<Perceptron>,
+    perceptron: Option<Weights>,
 }
 
 impl LinearClassifier {
@@ -20,7 +20,7 @@ impl LinearClassifier {
     /// Returns trained perceptron / weights.
     /// * `sample` - Flattened training data
     /// * `labels` - Labels for training data (-1.0 or 1.0)
-    pub fn train(&mut self, sample: &Points, labels: &Labels) -> Option<&Perceptron> {
+    pub fn train(&mut self, sample: &Points, labels: &Labels) -> Option<&Weights> {
         self.perceptron =
             Some(sample.transpose().pseudo_inverse(EPSILON).unwrap() * labels.transpose());
         self.perceptron.as_ref()

@@ -11,7 +11,7 @@
 
 <body>
 
-  <h1> Sample Size vs Bias and Variance </h1>
+  <h1> Sample Size vs Bias and Variance, Nonlinearity</h1>
   <ul>
     <li>More samples, better prediction!</li>
     <li>Random sample points are labeled by our target function as a boundary</li>
@@ -27,23 +27,27 @@
     <label for="num-runs">Number of Runs: </label>
     <input type="number" id="num-runs" name="num-runs" autocomplete="off" min="10" max="1000" value="500" />
   </div>
+
+  <div>
+    <label for="choose-features">Choose the Features:</label>
+    <select id="choose-features" name="choose-features" id="choose-features">
+      <option value="linear" selected="selected">Linear [1, x, y]</option>
+      <option value="quadratic">Quadratic [1, x, y, xy, x^2, y^2]</option>
+    </select>
+  </div>
+
   <button id="run-bias-sim">Run Simulation</button>
 
   <div id="chart-container">
-    <canvas id="bias-sim-canvas" width="600" height="600"></canvas>
-  </div>
+    <div id="chart-container">
+      <svg id="nonlinearPlot" width="600" height="600"></svg>
+    </div>
 
-  <h1>Sample Size vs In-Sample Error</h1>
+    <h1>Sample Size vs In-Sample Error</h1>
 
-  <div id="chart-container">
-    <svg id="linePlot" width="600" height="600"></svg>
-  </div>
-
-  <h1> Non-Linear Features </h1>
-  <div id="chart-container">
-    <svg id="nonlinearPlot" width="600" height="600"></svg>
-  </div>
-  </div>
+    <div id="chart-container">
+      <svg id="linePlot" width="600" height="600"></svg>
+    </div>
 </body>
 
 </html>

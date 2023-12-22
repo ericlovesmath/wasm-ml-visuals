@@ -1,17 +1,14 @@
 import * as d3 from "d3";
 import "./style.css";
-import Chart from "chart.js/auto";
-import {
-  wasm_memory,
-  LCInSampleError,
-  LCBiasVariance,
-  LCNonlinear,
-} from "algs";
+import { wasm_memory, LCInSampleError, LCNonlinear, LCFeatures } from "algs";
 
 const InputNumPoints = <HTMLInputElement>document.getElementById("num-points");
 const InputNumRuns = <HTMLInputElement>document.getElementById("num-runs");
 const ButtonRunBiasSim = <HTMLButtonElement>(
   document.getElementById("run-bias-sim")
+);
+const SelectLCFeatures = <HTMLSelectElement>(
+  document.getElementById("choose-features")
 );
 
 const nMin = parseInt(InputNumPoints.min);
@@ -25,30 +22,6 @@ const marginTop = 20;
 const marginRight = 20;
 const marginBottom = 30;
 const marginLeft = 40;
-
-let biasSimChart = new Chart("bias-sim-canvas", {
-  type: "scatter",
-  data: {
-    datasets: [
-      {
-        type: "line",
-        borderColor: "Black",
-        label: "Hypothesis",
-        data: [] as any[],
-      },
-    ],
-  },
-  options: {
-    devicePixelRatio: 2,
-    scales: {
-      x: { min: -1, max: 1 },
-      y: { min: -1, max: 1 },
-    },
-    plugins: {
-      legend: { labels: { filter: (item) => item.text !== undefined } },
-    },
-  },
-});
 
 function plot_lc_in_sample_error() {
   // Declare the x (horizontal position) scale.
@@ -131,33 +104,7 @@ function plot_lc_in_sample_error() {
   setTimeout(() => runner.free(), 0);
 }
 
-function plot_lc_bias(n: number, runs: number) {
-  let runner = LCBiasVariance.new();
-
-  // Clear previous run
-  biasSimChart.data.datasets.length = 1;
-  biasSimChart.data.datasets[0].data = [
-    { x: -2, y: runner.f_neg },
-    { x: 2, y: runner.f_pos },
-  ];
-
-  for (let i = 0; i < runs; i += 1) {
-    runner.run(n);
-    biasSimChart.data.datasets.push({
-      type: "line",
-      borderColor: "rgba(100, 100, 100, 0.1)",
-      data: [
-        { x: -2, y: runner.g_neg },
-        { x: 2, y: runner.g_pos },
-      ],
-    });
-  }
-
-  biasSimChart.update("none");
-  runner.free();
-}
-
-function plot_lc_nonlinear(n: number, runs: number) {
+function plot_lc_bias(n: number, runs: number, features: LCFeatures) {
   // Declare the x (horizontal position) scale.
   const x = d3
     .scaleLinear()
@@ -176,6 +123,8 @@ function plot_lc_nonlinear(n: number, runs: number) {
     .attr("width", width)
     .attr("height", height);
 
+  svg.selectAll("path").remove();
+
   // Create x and y axis
   svg
     .append("g")
@@ -192,71 +141,89 @@ function plot_lc_nonlinear(n: number, runs: number) {
     .append("SVG:clipPath")
     .attr("id", "clip")
     .append("SVG:rect")
-    .attr("width", width - marginLeft - marginRight)
-    .attr("height", height - marginBottom - marginTop)
     .attr("x", marginLeft)
-    .attr("y", marginTop);
+    .attr("y", marginTop)
+    .attr("width", width - marginLeft - marginRight)
+    .attr("height", height - marginBottom - marginTop);
 
   //////////////////////////////////
 
-  interface DataPoint {
+  interface Point {
     x: number;
     y: number;
+    i: number;
   }
 
-  const line = d3
-    .line<DataPoint>()
-    .x((d) => x(d.x))
-    .y((d) => y(d.y));
+  const contourSample: Point[] = [];
+  let i = 0;
+  d3.range(-1.5, 1.6, 0.1).forEach((y) => {
+    d3.range(-1.5, 1.6, 0.1).forEach((x) => {
+      contourSample.push({ x, y, i: i });
+      i += 1;
+    });
+  });
+
+  // Compute the density contours.
+  const draw_contours = (f: Float64Array, color: string, opacity: number) => {
+    let contours = d3
+      .contourDensity<Point>()
+      .x((d) => x(d.x))
+      .y((d) => y(d.y))
+      .size([width, height])
+      .bandwidth(30)
+      .weight((d) => f[d.i])
+      .thresholds([0])(contourSample);
+
+    svg
+      .append("g")
+      .attr("fill", "none")
+      .attr("stroke", color)
+      .attr("stroke-linejoin", "round")
+      .attr("stroke-opacity", opacity)
+      .selectAll()
+      .data(contours)
+      .join("path")
+      .attr("clip-path", "url(#clip)")
+      .attr("stroke-width", 2)
+      .attr("d", d3.geoPath());
+  };
 
   let runner = LCNonlinear.new();
 
-  let f = new Float64Array(wasm_memory().buffer, runner.set_features(0), 201);
-  const f_data = [...Array(201).keys()].map((_, n) => ({
-    x: (n - 100) * 0.01,
-    y: f[n],
-  }));
+  runner.set_features(features);
 
   for (let i = 0; i < runs; i += 1) {
-    let g = new Float64Array(
-      wasm_memory().buffer,
-      runner.get_prediction(n),
-      201
-    );
-    let data = [...Array(201).keys()].map((_, n) => ({
-      x: (n - 100) * 0.01,
-      y: g[n],
-    }));
-    svg
-      .append("path")
-      .datum(data)
-      .attr("fill", "none")
-      .attr("stroke", `steelblue`)
-      .attr("stroke-linejoin", "round")
-      .attr("stroke-linecap", "round")
-      .attr("stroke-width", 2)
-      .attr("stroke-opacity", 0.1)
-      .attr("clip-path", "url(#clip)")
-      .attr("d", line);
+    setTimeout(() => {
+      runner.get_prediction(n);
+      let g = new Float64Array(wasm_memory().buffer, runner.get_g(), 961);
+      draw_contours(g, "grey", 0.1);
+    }, 0);
   }
 
-  svg
-    .append("path")
-    .datum(f_data)
-    .attr("fill", "none")
-    .attr("stroke", `black`)
-    .attr("stroke-linejoin", "round")
-    .attr("stroke-linecap", "round")
-    .attr("stroke-width", 2)
-    .attr("clip-path", "url(#clip)")
-    .attr("d", line);
-
-  runner.free();
+  setTimeout(() => {
+    let f = new Float64Array(wasm_memory().buffer, runner.get_f(), 961);
+    draw_contours(f, "black", 1.0);
+    runner.free();
+  }, 0);
 }
 
+const get_features = () => {
+  let features_index = SelectLCFeatures.selectedIndex;
+  if (features_index == 0) {
+    return LCFeatures.Linear;
+  } else if (features_index == 1) {
+    return LCFeatures.Quadratic;
+  }
+  console.log("Missing LCFeature, Defaulting to Linear");
+  return LCFeatures.Linear;
+};
+
+plot_lc_bias(
+  InputNumPoints.valueAsNumber,
+  InputNumRuns.valueAsNumber,
+  get_features()
+);
 plot_lc_in_sample_error();
-plot_lc_bias(InputNumPoints.valueAsNumber, InputNumRuns.valueAsNumber);
-plot_lc_nonlinear(200, 200);
 
 ButtonRunBiasSim.onclick = () => {
   let n = InputNumPoints.valueAsNumber;
@@ -266,6 +233,6 @@ ButtonRunBiasSim.onclick = () => {
   } else if (isNaN(runs) || runs < runsMin || runs > runsMax) {
     alert(`Number of runs must be an integer from ${runsMin} to ${runsMax}`);
   } else {
-    plot_lc_bias(n, runs);
+    plot_lc_bias(n, runs, get_features());
   }
 };
