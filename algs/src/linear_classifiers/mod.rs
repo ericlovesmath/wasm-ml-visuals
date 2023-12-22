@@ -1,6 +1,7 @@
 pub mod bias_variance;
 pub mod in_sample_error;
 pub mod linear_classifier;
+pub mod nonlinear_features;
 pub mod utils;
 
 pub mod types {
