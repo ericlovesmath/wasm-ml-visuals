@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ML Visuals</title>
+  <script type="module" crossorigin src="/assets/index-3ZQOquL7.js"></script>
+</head>
+
+<body>
+
+  <h1> Sample Size vs Bias and Variance, Nonlinearity</h1>
+  <ul>
+    <li>More samples, better prediction!</li>
+    <li>Random sample points are labeled by our target function as a boundary</li>
+    <li>Linear regression is used on the sample points to generate a hypothesis</li>
+    <li>We can observe how various parameters change the bias and variance</li>
+  </ul>
+
+  <div>
+    <label for="num-points">Number of Sample Points: </label>
+    <input type="number" id="num-points" name="num-points" autocomplete="off" min="10" max="1000" value="500" />
+  </div>
+  <div>
+    <label for="num-runs">Number of Runs: </label>
+    <input type="number" id="num-runs" name="num-runs" autocomplete="off" min="10" max="1000" value="500" />
+  </div>
+
+  <div>
+    <label for="choose-features">Choose the Features:</label>
+    <select id="choose-features" name="choose-features" id="choose-features">
+      <option value="linear" selected="selected">Linear [1, x, y]</option>
+      <option value="quadratic">Quadratic [1, x, y, xy, x^2, y^2]</option>
+    </select>
+  </div>
+
+  <button id="run-bias-sim">Run Simulation</button>
+
+  <div id="chart-container">
+    <div id="chart-container">
+      <svg id="nonlinearPlot" width="600" height="600"></svg>
+    </div>
+
+    <h1>Sample Size vs In-Sample Error</h1>
+
+    <div id="chart-container">
+      <svg id="linePlot" width="600" height="600"></svg>
+    </div>
+</body>
+
+</html>
