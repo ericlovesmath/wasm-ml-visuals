@@ -3,7 +3,7 @@ extern crate nalgebra as na;
 use crate::linear_classifiers::types::*;
 use crate::utils::set_panic_hook;
 
-const EPSILON: f64 = 1E-6;
+const EPSILON: f64 = 1E-10;
 
 /// Linear Classifier for labeled 2D vectors
 pub struct LinearClassifier {

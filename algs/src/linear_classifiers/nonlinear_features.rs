@@ -55,7 +55,7 @@ impl LCNonlinear {
     }
 
     pub fn get_prediction(&mut self, n: usize) {
-        let (sample, labels) = get_random_sample_test(n, &self.weights, self.features);
+        let (sample, labels) = get_random_sample(n, &self.weights, self.features);
         let weights = self.lc.train(&sample, &labels).unwrap();
         for i in 0..=30 {
             for j in 0..=30 {

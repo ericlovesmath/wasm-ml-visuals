@@ -2,18 +2,6 @@ use crate::linear_classifiers::types::*;
 use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
 
-/// Generates `n` sample points using boundary `mx + b`.
-/// Uses the standard linear features `(1, x, y)`.
-pub fn get_random_sample(n: usize, m: f64, b: f64) -> (Points, Labels) {
-    let mut rng = SmallRng::from_entropy();
-    let sample = Points::from_fn(3, n, |r, _| match r {
-        0 => 1.0,
-        _ => rng.gen_range(-1.0..1.0),
-    });
-    let labels = Labels::from_fn(n, |_, c| (sample[(2, c)] - sample[(1, c)] * m - b).signum());
-    (sample, labels)
-}
-
 pub fn get_random_line() -> Weights {
     let mut rng = SmallRng::from_entropy();
     Weights::from_vec(vec![
@@ -35,7 +23,7 @@ pub fn get_random_quadratic() -> Weights {
     ])
 }
 
-pub fn get_random_sample_test(
+pub fn get_random_sample(
     n: usize,
     f: &Weights,
     features: fn(f64, f64) -> Weights,
